@@ -34,36 +34,37 @@ public class MetadataMojo extends AbstractMojo {
             sourceRoots.addAll(project.getCompileSourceRoots());
             sourceRoots.addAll(project.getTestCompileSourceRoots());
 
-            // Calculate relative paths for source roots
             File baseDir = project.getBasedir();
-            List<String> relativeSourcePaths = new ArrayList<>();
-            for (String sourceRoot : sourceRoots) {
-                File sourceDir = new File(sourceRoot);
-                if (sourceDir.exists()) {
-                    String relativePath = baseDir.toPath().relativize(sourceDir.toPath()).toString();
-                    relativeSourcePaths.add(relativePath);
-                }
-            }
-
-            // Get Git info
             GitInfoProvider gitInfoProvider = new GitInfoProvider(baseDir);
-            GitInfoProvider.GitInfo gitInfo = gitInfoProvider.getGitInfo(relativeSourcePaths);
+
+            // Compute relative source roots ONCE
+            java.util.Set<String> relativeSourceRoots = gitInfoProvider.collectRelativeSourceRoots(sourceRoots);
+
+            // Get Git metadata
+            GitInfoProvider.GitInfo gitInfo = gitInfoProvider.getGitInfo(new ArrayList<>(relativeSourceRoots));
 
             getLog().info("Repository URL: " + gitInfo.getRepositoryUrl());
             getLog().info("Commit SHA: " + gitInfo.getCommitSha());
             getLog().info("Source paths: " + String.join(", ", gitInfo.getSourcePaths()));
 
-            // Calculate checksums
-            SourceChecksumCalculator checksumCalculator = new SourceChecksumCalculator(baseDir);
-            Map<String, String> checksums = checksumCalculator.calculateChecksums(sourceRoots);
+            // Run git ls-tree ONCE
+            List<GitLsTreeEntry> lsTreeEntries = gitInfoProvider.runLsTree();
+
+            // Derive both maps from the same data
+            SourceChecksumCalculator checksumCalculator = new SourceChecksumCalculator();
+            Map<String, String> checksums = checksumCalculator.calculateChecksums(lsTreeEntries, relativeSourceRoots);
+
+            SourceClassNameCalculator classNameCalculator = new SourceClassNameCalculator();
+            Map<String, String> sourceClasses = classNameCalculator.calculateSourceClasses(lsTreeEntries, relativeSourceRoots);
 
             getLog().info("Calculated checksums for " + checksums.size() + " source files");
+            getLog().info("Calculated class names for " + sourceClasses.size() + " source files");
 
-            // Write metadata file (simpler than fighting with manifest)
-            writeMetadata(gitInfo);
-
-            // Write checksums file
-            writeChecksums(checksums);
+            // Write all outputs (resolve META-INF dir once)
+            File metaInfDir = resolveMetaInfDir();
+            writeMetadata(metaInfDir, gitInfo);
+            writeChecksums(metaInfDir, checksums);
+            writeSourceClasses(metaInfDir, sourceClasses);
 
             getLog().info("Source metadata embedded successfully");
 
@@ -72,13 +73,16 @@ public class MetadataMojo extends AbstractMojo {
         }
     }
 
-    private void writeMetadata(GitInfoProvider.GitInfo gitInfo) throws IOException {
+    private File resolveMetaInfDir() {
         File outputDir = new File(project.getBuild().getOutputDirectory());
         File metaInfDir = new File(outputDir, "META-INF");
         if (!metaInfDir.exists()) {
             metaInfDir.mkdirs();
         }
+        return metaInfDir;
+    }
 
+    private void writeMetadata(File metaInfDir, GitInfoProvider.GitInfo gitInfo) throws IOException {
         File metadataFile = new File(metaInfDir, "source-metadata.properties");
 
         try (Writer writer = new OutputStreamWriter(new FileOutputStream(metadataFile), StandardCharsets.UTF_8)) {
@@ -90,13 +94,7 @@ public class MetadataMojo extends AbstractMojo {
         getLog().debug("Wrote metadata to " + metadataFile.getAbsolutePath());
     }
 
-    private void writeChecksums(Map<String, String> checksums) throws IOException {
-        File outputDir = new File(project.getBuild().getOutputDirectory());
-        File metaInfDir = new File(outputDir, "META-INF");
-        if (!metaInfDir.exists()) {
-            metaInfDir.mkdirs();
-        }
-
+    private void writeChecksums(File metaInfDir, Map<String, String> checksums) throws IOException {
         File checksumsFile = new File(metaInfDir, "source-checksums.properties");
 
         try (Writer writer = new OutputStreamWriter(new FileOutputStream(checksumsFile), StandardCharsets.UTF_8)) {
@@ -106,5 +104,17 @@ public class MetadataMojo extends AbstractMojo {
         }
 
         getLog().debug("Wrote checksums to " + checksumsFile.getAbsolutePath());
+    }
+
+    private void writeSourceClasses(File metaInfDir, Map<String, String> sourceClasses) throws IOException {
+        File sourceClassesFile = new File(metaInfDir, "source-classes.properties");
+
+        try (Writer writer = new OutputStreamWriter(new FileOutputStream(sourceClassesFile), StandardCharsets.UTF_8)) {
+            for (Map.Entry<String, String> entry : sourceClasses.entrySet()) {
+                writer.write(entry.getKey() + "=" + entry.getValue() + "\n");
+            }
+        }
+
+        getLog().debug("Wrote source classes to " + sourceClassesFile.getAbsolutePath());
     }
 }

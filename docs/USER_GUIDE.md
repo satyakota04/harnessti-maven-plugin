@@ -6,7 +6,8 @@ This guide explains how to use the harnessti-maven-plugin to embed source tracea
 
 The plugin automatically embeds two things in your JAR files:
 1. **Git metadata** - repository URL, commit SHA, and source paths
-2. **Source file checksums** - MD5 checksums of all Java files
+2. **Source file checksums** - Git blob SHA-1 hashes for Java source files
+3. **Source class names** - class-to-source path mapping for Java files
 
 This enables Test Intelligence to trace test execution back to specific source files, even in closed-source deployments.
 
@@ -125,8 +126,15 @@ source.paths=src/main/java,src/test/java
 
 **META-INF/source-checksums.properties:**
 ```properties
-com/example/MyClass.java=d41d8cd98f00b204e9800998ecf8427e
-com/example/util/Helper.java=098f6bcd4621d373cade4e832627b4f6
+src/main/java/com/example/MyClass.java=2e65efe2a145dda7ee51d1741299f848e5bf752e
+src/main/java/com/example/util/Helper.java=4a8f6b9b8f7b9582a4d676d89a18f00a39fce8c4
+...
+```
+
+**META-INF/source-classes.properties:**
+```properties
+com.example.MyClass=src/main/java/com/example/MyClass.java
+com.example.util.Helper=src/main/java/com/example/util/Helper.java
 ...
 ```
 
@@ -283,15 +291,25 @@ Note: The current version doesn't implement `<skip>` yet, but it's easy to add i
 
 ### Source Checksums (source-checksums.properties)
 
-Format: `relative/path/to/File.java=md5hash`
+Format: `relative/path/to/File.java=gitBlobSha1`
 
 Example:
 ```properties
-src/main/java/com/example/App.java=098f6bcd4621d373cade4e832627b4f6
-src/main/java/com/example/util/Helper.java=5d41402abc4b2a76b9719d911017c592
+src/main/java/com/example/App.java=2e65efe2a145dda7ee51d1741299f848e5bf752e
+src/main/java/com/example/util/Helper.java=4a8f6b9b8f7b9582a4d676d89a18f00a39fce8c4
 ```
 
-Only `.java` files are checksummed (not `.class` files or resources).
+Only `.java` files from configured source roots are included, using `git ls-tree -r -t HEAD` blob hashes.
+
+### Source Classes (source-classes.properties)
+
+Format: `fully.qualified.ClassName=relative/path/to/Class.java`
+
+Example:
+```properties
+com.example.App=src/main/java/com/example/App.java
+com.example.util.Helper=src/main/java/com/example/util/Helper.java
+```
 
 ## Reading Metadata at Runtime
 
