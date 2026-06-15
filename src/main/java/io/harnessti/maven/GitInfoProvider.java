@@ -20,6 +20,13 @@ public class GitInfoProvider {
         this.projectBaseDir = projectBaseDir;
     }
 
+    /**
+     * Discovers the git repository root directory.
+     */
+    public String getGitRepoRoot() throws IOException {
+        return executeGitCommand("git", "rev-parse", "--show-toplevel");
+    }
+
     public GitInfo getGitInfo(List<String> sourcePaths) throws IOException {
         String repositoryUrl = executeGitCommand("git", "config", "--get", "remote.origin.url");
         String commitSha = executeGitCommand("git", "rev-parse", "HEAD");
