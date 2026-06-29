@@ -9,8 +9,8 @@ public class SourceClassNameCalculator {
 
     /**
      * Calculates source classes with artifact-scoped keys for multi-module support.
-     * Returns a map where keys are {artifactId}.jar:{fullyQualifiedClassName}
-     * and values are file paths relative to repo root.
+     * Returns a map where keys are {artifactId}-{version}.jar:{fullyQualifiedClassName}
+     * (e.g. "myapp-1.2.3.jar:com.example.Foo") and values are file paths relative to repo root.
      */
     public Map<String, String> calculateSourceClassesWithModules(List<GitLsTreeEntry> entries, List<ModuleInfo> modules) {
         Map<String, String> sourceClasses = new HashMap<>();
@@ -31,7 +31,7 @@ public class SourceClassNameCalculator {
 
             String className = deriveClassName(filePath, module.getSourceRoot());
             if (className != null && !className.isEmpty()) {
-                String key = module.getArtifactId() + ".jar:" + className;
+                String key = module.getJarId() + ":" + className;
                 sourceClasses.put(key, filePath);
             }
         }

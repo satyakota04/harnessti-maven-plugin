@@ -129,13 +129,20 @@ public class GitInfoProvider {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             String result = reader.lines().collect(Collectors.joining("\n")).trim();
 
-            int exitCode = process.waitFor();
+            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                throw new IOException("Git command timed out after 30 seconds: " + String.join(" ", command));
+            }
+
+            int exitCode = process.exitValue();
             if (exitCode != 0) {
                 throw new IOException("Git command failed with exit code " + exitCode + ": " + String.join(" ", command));
             }
 
             return result;
         } catch (InterruptedException e) {
+            process.destroyForcibly();
             Thread.currentThread().interrupt();
             throw new IOException("Git command interrupted", e);
         }
