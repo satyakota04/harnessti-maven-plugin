@@ -137,7 +137,7 @@ public class MetadataMojo extends AbstractMojo {
             // Fallback: write metadata + data files to JAR for later upload
             getLog().warn("Manifest upload failed, writing manifest files to JAR for later upload");
             writeManifestMetadata(metaInfDir, manifestId, gitInfo.getRepositoryUrl(), gitInfo.getCommitSha(), sourceClasses);
-            writeManifestData(metaInfDir, checksums, sourceClasses);
+            writeManifestData(metaInfDir, checksums, sourceClasses, gitInfo.getRepositoryUrl());
             getLog().info("Fallback: manifest files written to META-INF");
         }
 
@@ -232,7 +232,7 @@ public class MetadataMojo extends AbstractMojo {
         }
 
         try {
-            String json = buildJson(checksums, classes);
+            String json = buildJson(checksums, classes, repoUrl);
             byte[] compressed = gzipBytes(json.getBytes(StandardCharsets.UTF_8));
 
             String urlStr = endpoint + "/manifests/write"
@@ -387,9 +387,9 @@ public class MetadataMojo extends AbstractMojo {
         return null; // No closing quote found
     }
 
-    private String buildJson(Map<String, String> checksums, Map<String, String> classes) {
+    private String buildJson(Map<String, String> checksums, Map<String, String> classes, String repoUrl) {
         StringBuilder sb = new StringBuilder();
-        sb.append("{\"checksums\":{");
+        sb.append("{\"repo_url\":\"").append(escapeJson(repoUrl)).append("\",\"checksums\":{");
 
         boolean first = true;
         for (Map.Entry<String, String> entry : checksums.entrySet()) {
@@ -743,12 +743,13 @@ public class MetadataMojo extends AbstractMojo {
      * This is used as a fallback when upload fails, so HCLI can upload later.
      */
     private void writeManifestData(File metaInfDir, Map<String, String> checksums,
-                                   Map<String, String> sourceClasses) throws IOException {
+                                   Map<String, String> sourceClasses, String repoUrl) throws IOException {
         File manifestDataFile = new File(metaInfDir, "harness-manifest-data.json");
 
         // Build manifest data JSON
         StringBuilder sb = new StringBuilder();
         sb.append("{\n");
+        sb.append("  \"repo_url\": \"").append(escapeJson(repoUrl)).append("\",\n");
         sb.append("  \"checksums\": {");
 
         boolean first = true;
