@@ -27,12 +27,15 @@ public class ModuleInfo {
     }
 
     /**
-     * Returns the jar identifier as "artifactId.jar" (version intentionally omitted so the id
-     * is consistent whether or not the module declares its own version).
+     * Returns the jar identifier as "artifactId-version.jar" (e.g. "core-lib-1.0.0-SNAPSHOT.jar").
+     * If version is not known, falls back to "artifactId.jar".
      */
     public String getJarId() {
         if (artifactId == null || artifactId.isEmpty()) {
             return "unknown.jar";
+        }
+        if (version != null && !version.isEmpty()) {
+            return artifactId + "-" + version + ".jar";
         }
         return artifactId + ".jar";
     }

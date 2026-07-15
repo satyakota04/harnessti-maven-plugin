@@ -493,11 +493,11 @@ public class MetadataMojo extends AbstractMojo {
         String artifactId = project.getArtifactId();
         String version = project.getVersion();
 
-        // Build jar id like "myapp-1.0.0.jar" for this module
+        // Build jar id like "core-lib-1.0.0-SNAPSHOT.jar" for this module (includes version)
         String currentJarId = toJarId(artifactId, version);
 
         // Extract package prefixes from source classes (with jarid:prefix)
-        String packagePrefixes = extractPackagePrefixes(sourceClasses, currentJarId);
+        String packagePrefixes = extractPackagePrefixes(sourceClasses, currentJarId, artifactId);
 
         File metadataFile = new File(metaInfDir, "harness-manifest.properties");
 
@@ -533,10 +533,9 @@ public class MetadataMojo extends AbstractMojo {
      *   - Multiple different user-maintained packages in the same jar are reported separately.
      *   - Bare TLDs are never emitted.
      *
-     * Example output for service-1.0.0.jar:
-     *   "service-1.0.0.jar:com.example,service-1.0.0.jar:io.harness"
+     * Jar ids include version when known: "core-lib-1.0.0-SNAPSHOT.jar:com.example"
      */
-    private String extractPackagePrefixes(Map<String, String> sourceClasses, String currentJarId) {
+    private String extractPackagePrefixes(Map<String, String> sourceClasses, String currentJarId, String artifactId) {
         if (sourceClasses == null || sourceClasses.isEmpty()) {
             return "";
         }
@@ -560,8 +559,17 @@ public class MetadataMojo extends AbstractMojo {
                 className = key;
             }
 
-            // Only include classes from the CURRENT jar
-            if (!currentJarId.equals(jarId)) {
+            // Only include classes from the CURRENT jar.
+            // Match exact, or by artifactId (to tolerate ModuleDiscovery missing the version,
+            // or using a different version string for inherited <version> from parent).
+            boolean matches = currentJarId.equals(jarId);
+            if (!matches && artifactId != null && !artifactId.isEmpty()) {
+                if (jarId.equals(artifactId + ".jar")
+                        || (jarId.startsWith(artifactId + "-") && jarId.endsWith(".jar"))) {
+                    matches = true;
+                }
+            }
+            if (!matches) {
                 continue;
             }
 
@@ -587,12 +595,16 @@ public class MetadataMojo extends AbstractMojo {
     }
 
     /**
-     * Formats a jar identifier as "artifactId.jar" (version intentionally omitted so the id
-     * matches across ModuleDiscovery, which may not see inherited versions, and the Maven Project).
+     * Formats a jar identifier including version when available:
+     * "artifactId-version.jar" (e.g. "core-lib-1.0.0-SNAPSHOT.jar").
+     * Falls back to "artifactId.jar" if no version.
      */
     private static String toJarId(String artifactId, String version) {
         if (artifactId == null || artifactId.isEmpty()) {
             return "unknown.jar";
+        }
+        if (version != null && !version.isEmpty()) {
+            return artifactId + "-" + version + ".jar";
         }
         return artifactId + ".jar";
     }

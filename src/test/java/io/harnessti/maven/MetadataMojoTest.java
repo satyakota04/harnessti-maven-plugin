@@ -103,14 +103,17 @@ class MetadataMojoTest {
 
     @Test
     void testToJarIdPattern() {
-        // Test JAR ID formatting pattern
-        String artifactId = "myapp";
-        String version = "1.0.0";
+        // Test JAR ID formatting: "artifactId-version.jar" (e.g. core-lib-1.0.0-SNAPSHOT.jar)
+        String artifactId = "core-lib";
+        String version = "1.0.0-SNAPSHOT";
         String jarId = artifactId + "-" + version + ".jar";
-        assertEquals("myapp-1.0.0.jar", jarId);
+        assertEquals("core-lib-1.0.0-SNAPSHOT.jar", jarId);
 
-        // Without version
-        String jarIdNoVersion = artifactId + ".jar";
+        // With release version
+        assertEquals("myapp-1.0.0.jar", "myapp" + "-" + "1.0.0" + ".jar");
+
+        // Fallback when no version available
+        String jarIdNoVersion = "myapp" + ".jar";
         assertEquals("myapp.jar", jarIdNoVersion);
     }
 

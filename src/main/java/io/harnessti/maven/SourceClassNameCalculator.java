@@ -10,7 +10,7 @@ public class SourceClassNameCalculator {
     /**
      * Calculates source classes with artifact-scoped keys for multi-module support.
      * Returns a map where keys are {artifactId}-{version}.jar:{fullyQualifiedClassName}
-     * (e.g. "myapp-1.2.3.jar:com.example.Foo") and values are file paths relative to repo root.
+     * (e.g. "core-lib-1.0.0-SNAPSHOT.jar:com.example.Foo") and values are file paths relative to repo root.
      */
     public Map<String, String> calculateSourceClassesWithModules(List<GitLsTreeEntry> entries, List<ModuleInfo> modules) {
         Map<String, String> sourceClasses = new HashMap<>();
